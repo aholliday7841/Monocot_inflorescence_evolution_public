@@ -1,0 +1,65 @@
+---
+title: "3 Families"
+output: html_document
+---
+#Rmarkdown set up
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+knitr::opts_knit$set(root.dir = "/Users/aholliday/Desktop/Moncot_Empire") #Project directory set up
+```
+
+
+#Load libraries
+```{r packages}
+library(corHMM)
+library(phytools)
+library(RColorBrewer)
+
+```
+
+```{r cleaning data}
+raw_data <- read.csv("data/3_Family_Data.csv")
+#raw_Data <- read.csv("/data/infloTraits.csv", na.strings=c("/data/Liliales_InfloData.csv","/data/Commelinales_InfloData.csv"))
+tree <- read.tree("data/Howard_etal_2019/big_constraint_fixed_dated.tre")
+
+## Remove Duplicates
+clean_Data_duplicatesRemoved <- raw_data[!duplicated(raw_data), ]   
+
+## Identify conflicts
+allDup <- function (value) {
+  duplicated(value) | duplicated(value, fromLast = TRUE)
+  }
+conflict <- clean_Data_duplicatesRemoved[allDup(clean_Data_duplicatesRemoved$Species),]
+
+## Remove all taxa with conflicting states 
+clean_Data_Final <- clean_Data_duplicatesRemoved[!(clean_Data_duplicatesRemoved$Species %in%
+                                                     conflict$Species),]
+```
+
+```{r trimming tree}
+# Remove any species in the phylogeny not in data
+tips2keep <- as.character(clean_Data_Final$Species)
+trimtree <- drop.tip(tree, setdiff(tree$tip.label, tips2keep))
+
+goal <- rayDISC(phy= trimtree,
+        data = clean_Data_Final,
+        model= "ER",
+        node.states= "marginal")
+
+```
+
+```{r}
+colors = brewer.pal(n= length(states), name="Paired")
+
+pdf("output/3_Family_ASR/3_Family_ASR.pdf", width= 8.5, height = 11)
+plot(trimtree, type="fan" , show.tip.label = TRUE, cex = .01)
+nodelabels(pie = goal[["states"]], cex = .25, col=colors)
+tiplabels(pie =goal[["tip.states"]], cex = .35, col= colors) #
+dev.off()
+
+pdf("output/3_Family_ASR/3_Family_ASR_beta.pdf", width= 8.5, height = 11)
+plot(trimtree, type="fan" , show.tip.label = TRUE, cex = .1)
+nodelabels(pie = goal[["states"]], cex = .25, col=colors)
+tiplabels(pie =goal[["tip.states"]], cex = .35, col= colors) #
+dev.off()
+```
